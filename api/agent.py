@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database import SessionLocal
+from dao.database import SessionLocal
 from service.chat_llm import chat_bot
 from service.db_agent import db_agent_service
 

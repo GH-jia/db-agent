@@ -16,7 +16,7 @@ def _load_api_key_from_config() -> str:
 
 
 class ChatBot:
-    def __init__(self, api_key: str, model: str = "glm-4.7"):
+    def __init__(self, api_key: str, model: str = "glm-4.6v"):
         self.api_key = api_key
         self.model = model
         self.sessions: dict[str, list[dict[str, str]]] = {}

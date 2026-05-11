@@ -1,5 +1,6 @@
 import logging
 import time
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -10,28 +11,26 @@ setup_logging()
 from api.agent import router as agent_router
 from api.chat import router as chat_router
 from api.items import router as items_router
-from database import Base, engine
+from dao.database import Base, engine
 
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("FastAPI application started")
+    yield
+    logger.info("FastAPI application stopped")
+
+
+app = FastAPI(lifespan=lifespan)
 
 Base.metadata.create_all(bind=engine)
 
 app.include_router(items_router)
 app.include_router(chat_router)
 app.include_router(agent_router)
-
-
-@app.on_event("startup")
-def on_startup() -> None:
-    logger.info("FastAPI application started")
-
-
-@app.on_event("shutdown")
-def on_shutdown() -> None:
-    logger.info("FastAPI application stopped")
 
 
 @app.middleware("http")

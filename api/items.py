@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database import SessionLocal
-from models import ItemModel
+from dao.database import SessionLocal
+from dao.models import ItemModel
 
 
 router = APIRouter()
