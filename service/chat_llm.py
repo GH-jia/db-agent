@@ -1,18 +1,20 @@
 import logging
 from collections.abc import Generator
-from pathlib import Path
 
-import yaml
 from openai import OpenAI
+
+from service.config import get_config_value
 
 
 logger = logging.getLogger(__name__)
 
 
 def _load_api_key_from_config() -> str:
-    config_path = Path(__file__).resolve().parent.parent / "config.yaml"
-    config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-    return config.get("API_KEY", "")
+    return get_config_value("API_KEY", "")
+
+
+def _load_chat_model_from_config() -> str:
+    return get_config_value("CHAT_MODEL", "glm-4.6v")
 
 
 class ChatBot:
@@ -93,4 +95,4 @@ class ChatBot:
         logger.info("Local chat session cleared: session_id=%s", session_id)
 
 
-chat_bot = ChatBot(api_key=_load_api_key_from_config())
+chat_bot = ChatBot(api_key=_load_api_key_from_config(), model=_load_chat_model_from_config())
