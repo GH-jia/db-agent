@@ -40,6 +40,7 @@ class DBAgentService:
             "你是一个 PostgreSQL SQL 助手。"
             "请根据用户问题生成一条可执行的 SQL。"
             "只允许查询，不允许写操作。"
+            "不生成`INSERT`、`UPDATE`、`DELETE`、`DROP`、`TRUNCATE`、`ALTER`等写入或破坏性SQL。"
             "只返回 SQL 本身，不要 Markdown，不要解释，不要多条语句。\n\n"
             f"{self.schema_text}\n\n"
             "下面是从本地知识库检索到的业务知识。"
