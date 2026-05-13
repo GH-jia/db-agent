@@ -54,3 +54,68 @@ CREATE INDEX IF NOT EXISTS idx_agent_messages_session_id
 
 CREATE INDEX IF NOT EXISTS idx_agent_messages_session_created_at
     ON agent_messages (session_id, created_at);
+
+CREATE TABLE IF NOT EXISTS agent_db_connections (
+    id BIGSERIAL PRIMARY KEY,
+    connection_id VARCHAR(64) NOT NULL UNIQUE,
+    user_id VARCHAR(100),
+    name VARCHAR(100) NOT NULL,
+    db_type VARCHAR(30) NOT NULL DEFAULT 'postgresql',
+    host VARCHAR(255) NOT NULL,
+    port INTEGER NOT NULL,
+    database_name VARCHAR(100) NOT NULL,
+    username VARCHAR(100) NOT NULL,
+    password_ciphertext TEXT NOT NULL,
+    ssl_mode VARCHAR(20) NOT NULL DEFAULT 'prefer',
+    readonly BOOLEAN NOT NULL DEFAULT true,
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    extra JSONB NOT NULL DEFAULT '{}'::jsonb,
+    last_tested_at TIMESTAMPTZ,
+    last_test_success BOOLEAN,
+    last_test_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_agent_db_connections_db_type
+        CHECK (db_type IN ('postgresql')),
+    CONSTRAINT chk_agent_db_connections_port
+        CHECK (port > 0 AND port <= 65535),
+    CONSTRAINT chk_agent_db_connections_ssl_mode
+        CHECK (ssl_mode IN ('disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full')),
+    CONSTRAINT chk_agent_db_connections_status
+        CHECK (status IN ('active', 'disabled'))
+);
+
+COMMENT ON TABLE agent_db_connections IS '数据库 agent 用户数据库连接配置表';
+COMMENT ON COLUMN agent_db_connections.id IS '自增主键';
+COMMENT ON COLUMN agent_db_connections.connection_id IS '数据库连接配置业务 ID，由接口或服务生成并传递';
+COMMENT ON COLUMN agent_db_connections.user_id IS '用户 ID，当前没有用户体系时可以为空';
+COMMENT ON COLUMN agent_db_connections.name IS '连接配置名称，例如测试库或生产只读库';
+COMMENT ON COLUMN agent_db_connections.db_type IS '数据库类型，当前仅支持 postgresql';
+COMMENT ON COLUMN agent_db_connections.host IS '数据库主机地址';
+COMMENT ON COLUMN agent_db_connections.port IS '数据库端口';
+COMMENT ON COLUMN agent_db_connections.database_name IS '数据库名称';
+COMMENT ON COLUMN agent_db_connections.username IS '数据库用户名';
+COMMENT ON COLUMN agent_db_connections.password_ciphertext IS '加密后的数据库密码，不保存明文密码';
+COMMENT ON COLUMN agent_db_connections.ssl_mode IS 'PostgreSQL SSL 模式';
+COMMENT ON COLUMN agent_db_connections.readonly IS '是否只允许只读查询';
+COMMENT ON COLUMN agent_db_connections.status IS '连接配置状态：active 或 disabled';
+COMMENT ON COLUMN agent_db_connections.extra IS '扩展连接参数，不能保存明文密码、token 或 API Key';
+COMMENT ON COLUMN agent_db_connections.last_tested_at IS '最近一次测试连接时间';
+COMMENT ON COLUMN agent_db_connections.last_test_success IS '最近一次测试连接是否成功';
+COMMENT ON COLUMN agent_db_connections.last_test_message IS '最近一次测试连接结果摘要，不能包含敏感信息';
+COMMENT ON COLUMN agent_db_connections.created_at IS '创建时间';
+COMMENT ON COLUMN agent_db_connections.updated_at IS '更新时间';
+
+CREATE INDEX IF NOT EXISTS idx_agent_db_connections_user_id
+    ON agent_db_connections (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_db_connections_status
+    ON agent_db_connections (status);
+
+ALTER TABLE agent_sessions
+    ADD COLUMN IF NOT EXISTS db_connection_id VARCHAR(64);
+
+COMMENT ON COLUMN agent_sessions.db_connection_id IS '会话绑定的数据库连接配置业务 ID';
+
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_db_connection_id
+    ON agent_sessions (db_connection_id);

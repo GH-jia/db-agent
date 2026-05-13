@@ -86,3 +86,7 @@
 
 根目录下的`db-agent.sql`用于记录 PostgreSQL 业务库的建表 SQL 和后续表结构变更 SQL。
 新增或调整业务表结构时，应同步更新`db-agent.sql`。
+维护`db-agent.sql`时采用追加式变更：
+- 对于已有表的表结构修改，不要回改已有的`CREATE TABLE`语句，只能在文件末尾追加`ALTER TABLE`等变更 SQL。
+- 新建表 SQL 也要追加到`db-agent.sql`文件末尾，不要插入到已有 SQL 中间。
+- 不要新增外键约束；表之间的关联字段只做业务关联，必要时通过索引优化查询。
