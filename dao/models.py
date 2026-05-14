@@ -33,7 +33,7 @@ class AgentDbConnectionModel(Base):
     port = Column(Integer, nullable=False)
     database_name = Column(String(100), nullable=False)
     username = Column(String(100), nullable=False)
-    password_ciphertext = Column(Text, nullable=False)
+    password = Column(Text, nullable=False)
     ssl_mode = Column(String(20), nullable=False, default="prefer")
     readonly = Column(Boolean, nullable=False, default=True)
     status = Column(String(20), nullable=False, default="active", index=True)

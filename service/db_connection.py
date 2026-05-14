@@ -1,5 +1,3 @@
-import base64
-import hashlib
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -9,7 +7,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from dao.models import AgentDbConnectionModel
-from service.config import get_config_value
 
 
 logger = logging.getLogger(__name__)
@@ -40,7 +37,7 @@ class DbConnectionService:
             port=self._resolve_port(data.get("port"), db_type),
             database_name=data["database_name"].strip(),
             username=data["username"].strip(),
-            password_ciphertext=self._encrypt_password(data["password"]),
+            password=data["password"],
             ssl_mode=data.get("ssl_mode", "prefer"),
             readonly=bool(data.get("readonly", True)),
             status=data.get("status", "active"),
@@ -140,7 +137,7 @@ class DbConnectionService:
             setattr(connection, field, value)
 
         if "password" in update_data:
-            connection.password_ciphertext = self._encrypt_password(update_data["password"])
+            connection.password = update_data["password"]
 
         connection.updated_at = datetime.now(timezone.utc)
         db.commit()
@@ -165,11 +162,12 @@ class DbConnectionService:
             "port": connection.port,
             "database_name": connection.database_name,
             "username": connection.username,
+            "password": connection.password,
             "ssl_mode": connection.ssl_mode,
             "readonly": connection.readonly,
             "status": connection.status,
             "extra": connection.extra,
-            "has_password": bool(connection.password_ciphertext),
+            "has_password": bool(connection.password),
             "last_tested_at": connection.last_tested_at,
             "last_test_success": connection.last_test_success,
             "last_test_message": connection.last_test_message,
@@ -222,23 +220,6 @@ class DbConnectionService:
         if port is None:
             return DEFAULT_PORTS[db_type]
         return int(port)
-
-    def _encrypt_password(self, password: str) -> str:
-        secret = self._password_secret()
-        password_bytes = password.encode("utf-8")
-        secret_bytes = hashlib.sha256(secret.encode("utf-8")).digest()
-        encrypted = bytes(
-            value ^ secret_bytes[index % len(secret_bytes)]
-            for index, value in enumerate(password_bytes)
-        )
-        return base64.urlsafe_b64encode(encrypted).decode("ascii")
-
-    def _password_secret(self) -> str:
-        return (
-            get_config_value("DB_CONNECTION_SECRET", "")
-            or get_config_value("API_KEY", "")
-            or "db-agent-local-secret"
-        )
 
 
 db_connection_service = DbConnectionService()
