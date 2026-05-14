@@ -19,7 +19,7 @@ class DbConnectionCreate(BaseModel):
     name: str
     db_type: str = "postgresql"
     host: str
-    port: int = Field(default=5432, ge=1, le=65535)
+    port: int | None = Field(default=None, ge=1, le=65535)
     database_name: str
     username: str
     password: str
@@ -61,6 +61,7 @@ def dump_request_model(model: BaseModel) -> dict[str, Any]:
 @router.get("")
 def list_db_connections(
     user_id: str | None = None,
+    db_type: str | None = None,
     status: str | None = None,
     keyword: str = "",
     page: int = 1,
@@ -71,6 +72,7 @@ def list_db_connections(
         connections, total = db_connection_service.list_connections(
             db=db,
             user_id=user_id,
+            db_type=db_type,
             status=status,
             keyword=keyword.strip(),
             page=page,

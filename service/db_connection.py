@@ -14,7 +14,11 @@ from service.config import get_config_value
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_DB_TYPES = {"postgresql"}
+SUPPORTED_DB_TYPES = {"postgresql", "mysql"}
+DEFAULT_PORTS = {
+    "postgresql": 5432,
+    "mysql": 3306,
+}
 SUPPORTED_SSL_MODES = {"disable", "allow", "prefer", "require", "verify-ca", "verify-full"}
 SUPPORTED_STATUSES = {"active", "disabled"}
 
@@ -26,13 +30,14 @@ class DbConnectionNotFoundError(Exception):
 class DbConnectionService:
     def create_connection(self, db: Session, data: dict[str, Any]) -> AgentDbConnectionModel:
         self._validate_connection_data(data, partial=False)
+        db_type = self._normalize_db_type(data.get("db_type"))
         connection = AgentDbConnectionModel(
             connection_id=self._new_connection_id(),
             user_id=data.get("user_id"),
             name=data["name"].strip(),
-            db_type=data.get("db_type", "postgresql"),
+            db_type=db_type,
             host=data["host"].strip(),
-            port=int(data["port"]),
+            port=self._resolve_port(data.get("port"), db_type),
             database_name=data["database_name"].strip(),
             username=data["username"].strip(),
             password_ciphertext=self._encrypt_password(data["password"]),
@@ -57,6 +62,7 @@ class DbConnectionService:
         self,
         db: Session,
         user_id: str | None = None,
+        db_type: str | None = None,
         status: str | None = None,
         keyword: str = "",
         page: int = 1,
@@ -68,6 +74,9 @@ class DbConnectionService:
         query = db.query(AgentDbConnectionModel)
         if user_id:
             query = query.filter(AgentDbConnectionModel.user_id == user_id)
+        if db_type:
+            db_type = self._normalize_db_type(db_type)
+            query = query.filter(AgentDbConnectionModel.db_type == db_type)
         if status:
             if status not in SUPPORTED_STATUSES:
                 raise ValueError("status must be active or disabled")
@@ -105,6 +114,10 @@ class DbConnectionService:
         connection = self.get_connection(db, connection_id)
         update_data = {key: value for key, value in data.items() if value is not None}
         self._validate_connection_data(update_data, partial=True)
+        if "db_type" in update_data:
+            update_data["db_type"] = self._normalize_db_type(update_data["db_type"])
+        if "port" in update_data:
+            update_data["port"] = self._resolve_port(update_data["port"], update_data.get("db_type", connection.db_type))
 
         for field in [
             "user_id",
@@ -165,7 +178,7 @@ class DbConnectionService:
         }
 
     def _validate_connection_data(self, data: dict[str, Any], partial: bool) -> None:
-        required_fields = ["name", "host", "port", "database_name", "username", "password"]
+        required_fields = ["name", "host", "database_name", "username", "password"]
         if not partial:
             missing_fields = [field for field in required_fields if not data.get(field)]
             if missing_fields:
@@ -176,10 +189,10 @@ class DbConnectionService:
                 raise ValueError(f"{field} cannot be empty")
 
         db_type = data.get("db_type")
-        if db_type is not None and db_type not in SUPPORTED_DB_TYPES:
-            raise ValueError("db_type only supports postgresql")
+        if db_type is not None:
+            self._normalize_db_type(db_type)
 
-        if "port" in data:
+        if "port" in data and data["port"] is not None:
             port = int(data["port"])
             if port <= 0 or port > 65535:
                 raise ValueError("port must be between 1 and 65535")
@@ -198,6 +211,17 @@ class DbConnectionService:
 
     def _new_connection_id(self) -> str:
         return f"dbc_{uuid.uuid4().hex}"
+
+    def _normalize_db_type(self, db_type: str | None) -> str:
+        normalized = (db_type or "postgresql").strip().lower()
+        if normalized not in SUPPORTED_DB_TYPES:
+            raise ValueError("db_type only supports postgresql or mysql")
+        return normalized
+
+    def _resolve_port(self, port: int | None, db_type: str) -> int:
+        if port is None:
+            return DEFAULT_PORTS[db_type]
+        return int(port)
 
     def _encrypt_password(self, password: str) -> str:
         secret = self._password_secret()
