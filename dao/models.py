@@ -15,7 +15,6 @@ class ItemModel(Base):
 class AgentDbConnectionModel(Base):
     __tablename__ = "agent_db_connections"
     __table_args__ = (
-        CheckConstraint("db_type IN ('postgresql', 'mysql')", name="chk_agent_db_connections_db_type"),
         CheckConstraint("port > 0 AND port <= 65535", name="chk_agent_db_connections_port"),
         CheckConstraint(
             "ssl_mode IN ('disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full')",
