@@ -162,7 +162,6 @@ class DbConnectionService:
             "port": connection.port,
             "database_name": connection.database_name,
             "username": connection.username,
-            "password": connection.password,
             "ssl_mode": connection.ssl_mode,
             "readonly": connection.readonly,
             "status": connection.status,

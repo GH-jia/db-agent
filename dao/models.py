@@ -15,6 +15,7 @@ class ItemModel(Base):
 class AgentDbConnectionModel(Base):
     __tablename__ = "agent_db_connections"
     __table_args__ = (
+        CheckConstraint("db_type IN ('postgresql', 'mysql')", name="chk_agent_db_connections_db_type"),
         CheckConstraint("port > 0 AND port <= 65535", name="chk_agent_db_connections_port"),
         CheckConstraint(
             "ssl_mode IN ('disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full')",
@@ -47,3 +48,43 @@ class AgentDbConnectionModel(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+
+class AgentSessionModel(Base):
+    __tablename__ = "agent_sessions"
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'archived')", name="chk_agent_sessions_status"),
+    )
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    session_id = Column(String(64), nullable=False, unique=True, index=True)
+    user_id = Column(String(100), nullable=True, index=True)
+    db_connection_id = Column(String(64), nullable=True, index=True)
+    title = Column(String(200), nullable=True)
+    status = Column(String(20), nullable=False, default="active", index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class AgentMessageModel(Base):
+    __tablename__ = "agent_messages"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('system', 'user', 'assistant', 'tool')",
+            name="chk_agent_messages_role",
+        ),
+    )
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    session_id = Column(String(64), nullable=False, index=True)
+    role = Column(String(20), nullable=False)
+    content = Column(Text, nullable=False)
+    intent = Column(String(50), nullable=True)
+    sql_text = Column(Text, nullable=True)
+    extra = Column(JSONB, nullable=False, default=dict)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

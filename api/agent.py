@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from dao.database import SessionLocal
 from service.chat_llm import chat_bot
+from service.agent_chat import agent_chat_service
 from service.data_source import DataSourceConfig, data_source_manager
 from service.data_source.manager import DataSourceError
 from service.db_agent import db_agent_service
@@ -20,6 +21,13 @@ logger = logging.getLogger(__name__)
 class QueryRequest(BaseModel):
     connection_id: str
     message: str
+
+
+class AgentChatRequest(BaseModel):
+    session_id: str
+    message: str
+    connection_id: str | None = None
+    user_id: str | None = None
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -73,3 +81,40 @@ def query_database(request: QueryRequest, app_db: Session = Depends(get_db)):
         "row_count": len(data),
         "data": data,
     }
+
+
+@router.post("/chat")
+def chat_with_database_agent(request: AgentChatRequest, app_db: Session = Depends(get_db)):
+    if not chat_bot.api_key:
+        logger.error("Agent chat rejected because API_KEY is not configured")
+        raise HTTPException(status_code=500, detail="API_KEY is not configured")
+
+    try:
+        logger.info(
+            "Start database agent chat: session_id=%s connection_id=%s",
+            request.session_id,
+            request.connection_id,
+        )
+        return agent_chat_service.chat(
+            app_db=app_db,
+            session_id=request.session_id,
+            message=request.message,
+            connection_id=request.connection_id,
+            user_id=request.user_id,
+        )
+    except DbConnectionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DataSourceError as exc:
+        logger.warning(
+            "Database agent chat data source error: session_id=%s connection_id=%s error=%s",
+            request.session_id,
+            request.connection_id,
+            exc,
+        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        logger.warning("Database agent chat validation failed: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Database agent chat failed")
+        raise HTTPException(status_code=500, detail=f"chat failed: {exc}") from exc
