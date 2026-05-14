@@ -123,29 +123,10 @@ CREATE INDEX IF NOT EXISTS idx_agent_sessions_db_connection_id
 ALTER TABLE agent_db_connections
     DROP CONSTRAINT IF EXISTS chk_agent_db_connections_db_type;
 
-ALTER TABLE agent_db_connections
-    ADD CONSTRAINT chk_agent_db_connections_db_type
-    CHECK (db_type IN ('postgresql', 'mysql'));
-
 COMMENT ON COLUMN agent_db_connections.db_type IS '数据库类型，支持 postgresql、mysql';
 COMMENT ON COLUMN agent_db_connections.ssl_mode IS '数据库 SSL/TLS 模式';
 
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'agent_db_connections'
-            AND column_name = 'password_ciphertext'
-    ) AND NOT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'agent_db_connections'
-            AND column_name = 'password'
-    ) THEN
-        ALTER TABLE agent_db_connections
+ALTER TABLE agent_db_connections
             RENAME COLUMN password_ciphertext TO password;
-    END IF;
-END $$;
 
 COMMENT ON COLUMN agent_db_connections.password IS 'Database password stored as plaintext for target data source connections';
