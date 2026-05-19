@@ -32,11 +32,34 @@
 .\.venv\Scripts\python main.py
 ```
 
+前端页面位于`web/`目录。首次运行前端依赖安装命令是：
+
+```powershell
+cd web
+npm install
+```
+
+启动前端开发服务命令是：
+
+```powershell
+cd web
+npm run dev
+```
+
 修改代码后至少执行语法检查：
 
 ```powershell
 .\.venv\Scripts\python -m compileall api service dao main.py logging_config.py
 ```
+
+修改前端代码后至少执行构建检查：
+
+```powershell
+cd web
+npm run build
+```
+
+需求完成后的检查阶段不用启动前端服务；只有需要人工预览页面或排查运行时交互问题时才启动前端开发服务。
 
 ## 搜索规则
 
@@ -90,3 +113,65 @@
 - 对于已有表的表结构修改，不要回改已有的`CREATE TABLE`语句，只能在文件末尾追加`ALTER TABLE`等变更 SQL。
 - 新建表 SQL 也要追加到`db-agent.sql`文件末尾，不要插入到已有 SQL 中间。
 - 不要新增外键约束；表之间的关联字段只做业务关联，必要时通过索引优化查询。
+
+## 需求前置工作流
+
+需求开发前优先使用需求前置工作流，先完成需求孵化和需求规格化，再进入业务代码实现。
+
+### 阶段一：需求孵化
+
+使用 `.agents/skills/requirement-incubation/SKILL.md`。
+
+职责：
+- 澄清模糊需求。
+- 收敛目标、非目标、范围边界和风险。
+- 标记 P0、P1、P2 待澄清问题。
+- 输出 `docs/ai/requirements/<requirement-slug>/requirement-state.md`。
+
+禁止事项：
+- 不允许写业务代码。
+- 不允许修改业务代码。
+- 不允许新增接口、页面、数据库表、脚本或生产配置。
+
+阶段规则：
+- 每个需求必须使用独立目录：`docs/ai/requirements/<requirement-slug>/`。
+- 如果存在 P0 待澄清问题，不允许进入需求规格化阶段。
+- 历史对话与最新需求文档冲突时，以最新需求文档为准。
+
+### 阶段二：需求规格化
+
+使用 `.agents/skills/requirement-specification/SKILL.md`。
+
+职责：
+- 基于 `requirement-state.md` 编写可开发、可验收的需求规格。
+- 明确功能范围、业务规则、数据和权限边界、异常场景、非功能要求。
+- 输出 `docs/ai/requirements/<requirement-slug>/requirement-spec.md`。
+
+禁止事项：
+- 不允许写业务代码。
+- 不允许修改业务代码。
+- 不允许跳过需求孵化直接进入实现。
+- 不允许在存在 P0 待澄清问题时继续规格化。
+
+阶段规则：
+- 需求规格化前必须检查 `requirement-state.md`。
+- 如果 `requirement-state.md` 中存在 P0 待澄清问题，必须停止并要求先澄清。
+- 规格化输出必须使用中文 Markdown。
+- 规格化完成后必须明确写出是否允许进入开发实现阶段。
+
+### 技术栈 Profile
+
+需求规格化阶段可按需求范围选择一个或多个技术栈 profile：
+
+- `backend-python-fastapi`：适用于当前项目 Python 3.11、FastAPI、PostgreSQL 后端。
+- `frontend-vue3`：适用于 `web/` 前端页面、组件和交互。
+- `backend-java-springboot-mybatis-plus`：适用于 Java Spring Boot 与 MyBatis-Plus 后端项目。
+
+### 需求文档约定
+
+- 项目级上下文模板：`docs/ai/project-context.md`。
+- 需求目录根路径：`docs/ai/requirements/`。
+- 需求孵化输出：`requirement-state.md`。
+- 需求规格化输出：`requirement-spec.md`。
+- 输出语言：中文 Markdown。
+- 不使用彩色图标或装饰性符号。

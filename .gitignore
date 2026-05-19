@@ -9,6 +9,7 @@ __pycache__/
 venv/
 env/
 ENV/
+node_modules/
 
 build/
 dist/
@@ -23,6 +24,7 @@ dist/
 htmlcov/
 .env
 logs/
+*.log
 
 .DS_Store
 Thumbs.db
