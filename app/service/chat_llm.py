@@ -3,7 +3,7 @@ from collections.abc import Generator
 
 from openai import OpenAI
 
-from service.config import get_config_value
+from app.service.config import get_config_value
 
 
 logger = logging.getLogger(__name__)

@@ -8,12 +8,12 @@ from logging_config import setup_logging
 
 setup_logging()
 
-from api.agent import router as agent_router
-from api.chat import router as chat_router
-from api.db_connections import router as db_connections_router
-from api.items import router as items_router
-from api.knowledge import router as knowledge_router
-from dao.database import Base, engine
+from app.api.agent import router as agent_router
+from app.api.chat import router as chat_router
+from app.api.db_connections import router as db_connections_router
+from app.api.items import router as items_router
+from app.api.knowledge import router as knowledge_router
+from app.dao.database import Base, engine
 
 
 logger = logging.getLogger(__name__)

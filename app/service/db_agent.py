@@ -3,8 +3,8 @@ import logging
 import re
 from typing import Any
 
-from service.chat_llm import chat_bot
-from service.knowledge_base import knowledge_base
+from app.service.chat_llm import chat_bot
+from app.service.knowledge_base import knowledge_base
 
 
 logger = logging.getLogger(__name__)

@@ -5,10 +5,10 @@ from typing import Any
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from service.data_source.providers.base import DataSourceProvider
-from service.data_source.providers.mysql import MySqlDataSourceProvider
-from service.data_source.providers.postgresql import PostgreSqlDataSourceProvider
-from service.data_source.schemas import DataSourceConfig
+from app.service.data_source.providers.base import DataSourceProvider
+from app.service.data_source.providers.mysql import MySqlDataSourceProvider
+from app.service.data_source.providers.postgresql import PostgreSqlDataSourceProvider
+from app.service.data_source.schemas import DataSourceConfig
 
 
 logger = logging.getLogger(__name__)

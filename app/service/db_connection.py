@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from dao.models import AgentDbConnectionModel
+from app.dao.models import AgentDbConnectionModel
 
 
 logger = logging.getLogger(__name__)

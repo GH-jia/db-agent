@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from service.knowledge_base import knowledge_base
+from app.service.knowledge_base import knowledge_base
 
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])

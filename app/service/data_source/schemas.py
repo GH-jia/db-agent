@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from dao.models import AgentDbConnectionModel
+from app.dao.models import AgentDbConnectionModel
 
 
 @dataclass(frozen=True)

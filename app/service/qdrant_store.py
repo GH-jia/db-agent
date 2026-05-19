@@ -4,8 +4,8 @@ import uuid
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, PointStruct, VectorParams
 
-from service.config import get_config_value
-from service.knowledge_types import KnowledgeChunk, KnowledgeSearchResult
+from app.service.config import get_config_value
+from app.service.knowledge_types import KnowledgeChunk, KnowledgeSearchResult
 
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from service.chat_llm import chat_bot
+from app.service.chat_llm import chat_bot
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])

@@ -5,13 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from dao.database import SessionLocal
-from service.chat_llm import chat_bot
-from service.agent_chat import agent_chat_service
-from service.data_source import DataSourceConfig, data_source_manager
-from service.data_source.manager import DataSourceError
-from service.db_agent import db_agent_service
-from service.db_connection import DbConnectionNotFoundError, db_connection_service
+from app.dao.database import SessionLocal
+from app.service.chat_llm import chat_bot
+from app.service.agent_chat import agent_chat_service
+from app.service.data_source import DataSourceConfig, data_source_manager
+from app.service.data_source.manager import DataSourceError
+from app.service.db_agent import db_agent_service
+from app.service.db_connection import DbConnectionNotFoundError, db_connection_service
 
 
 router = APIRouter(prefix="/agent", tags=["agent"])

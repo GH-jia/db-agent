@@ -7,7 +7,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 
 def _load_database_config() -> dict:
-    config_path = Path(__file__).resolve().parent.parent / "config.yaml"
+    config_path = Path(__file__).resolve().parents[2] / "config.yaml"
     config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     database_config = config.get("DATABASE", {})
 

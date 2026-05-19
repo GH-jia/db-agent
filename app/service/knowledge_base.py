@@ -3,9 +3,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-from service.embedding import embedding_service
-from service.knowledge_types import KnowledgeChunk, KnowledgeSearchResult
-from service.qdrant_store import qdrant_knowledge_store
+from app.service.embedding import embedding_service
+from app.service.knowledge_types import KnowledgeChunk, KnowledgeSearchResult
+from app.service.qdrant_store import qdrant_knowledge_store
 
 
 logger = logging.getLogger(__name__)

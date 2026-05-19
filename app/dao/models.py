@@ -1,7 +1,7 @@
 from sqlalchemy import BigInteger, Boolean, CheckConstraint, Column, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 
-from dao.database import Base
+from app.dao.database import Base
 
 
 class ItemModel(Base):

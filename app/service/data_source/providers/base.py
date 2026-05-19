@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from service.data_source.schemas import DataSourceConfig
+from app.service.data_source.schemas import DataSourceConfig
 
 
 logger = logging.getLogger(__name__)

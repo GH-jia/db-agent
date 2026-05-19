@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from dao.database import SessionLocal
-from service.db_connection import DbConnectionNotFoundError, db_connection_service
+from app.dao.database import SessionLocal
+from app.service.db_connection import DbConnectionNotFoundError, db_connection_service
 
 
 router = APIRouter(prefix="/db-connections", tags=["db-connections"])

@@ -7,7 +7,7 @@ import yaml
 
 @lru_cache
 def load_config() -> dict[str, Any]:
-    config_path = Path(__file__).resolve().parent.parent / "config.yaml"
+    config_path = Path(__file__).resolve().parents[2] / "config.yaml"
     return yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
 
 
