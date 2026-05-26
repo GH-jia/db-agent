@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, ref } from "vue";
+import { ElMessage } from "element-plus";
 import { chatWithAgent, listDbConnections } from "../api/agent";
 
 const connections = ref([]);
@@ -83,9 +84,12 @@ async function loadConnections() {
   try {
     const payload = await listDbConnections();
     connections.value = Array.isArray(payload.data) ? payload.data : [];
-    selectedConnectionId.value = connections.value[0]?.connection_id || "";
+    if (!connections.value.some((item) => item.connection_id === selectedConnectionId.value)) {
+      selectedConnectionId.value = connections.value[0]?.connection_id || "";
+    }
   } catch (error) {
     errorMessage.value = error.message;
+    ElMessage.error(error.message);
   } finally {
     loadingConnections.value = false;
   }
@@ -131,6 +135,7 @@ async function sendMessage() {
     });
   } catch (error) {
     errorMessage.value = error.message;
+    ElMessage.error(error.message);
     messages.value.push({
       id: createSessionId(),
       role: "assistant",
@@ -161,29 +166,30 @@ onMounted(loadConnections);
         <h1>数据库智能问答</h1>
       </div>
       <div class="header-actions">
-        <button class="ghost-button" type="button" @click="loadConnections">刷新连接</button>
-        <button class="primary-button" type="button" @click="newSession">新建会话</button>
+        <el-button icon="Refresh" :loading="loadingConnections" @click="loadConnections">
+          刷新连接
+        </el-button>
+        <el-button type="primary" icon="Plus" @click="newSession">新建会话</el-button>
       </div>
     </header>
 
-    <section class="toolbar-panel">
-      <label for="connection">数据库连接</label>
-      <select
-        id="connection"
+    <section class="toolbar-panel chat-toolbar">
+      <span class="field-label">数据库连接</span>
+      <el-select
         v-model="selectedConnectionId"
+        class="connection-select"
+        filterable
+        placeholder="请选择数据库连接"
+        :loading="loadingConnections"
         :disabled="loadingConnections || sending || connections.length === 0"
       >
-        <option value="" disabled>
-          {{ loadingConnections ? "正在加载连接..." : "请选择数据库连接" }}
-        </option>
-        <option
+        <el-option
           v-for="connection in connections"
           :key="connection.connection_id"
+          :label="formatConnection(connection)"
           :value="connection.connection_id"
-        >
-          {{ formatConnection(connection) }}
-        </option>
-      </select>
+        />
+      </el-select>
       <p v-if="selectedConnection" class="muted-line">
         当前连接：{{ selectedConnection.name }}，数据库：{{ selectedConnection.database_name }}
       </p>
@@ -193,10 +199,11 @@ onMounted(loadConnections);
     </section>
 
     <section ref="chatBody" class="chat-body" aria-live="polite">
-      <div v-if="messages.length === 0" class="empty-state">
-        <h2>选择连接后开始提问</h2>
-        <p>可以询问表结构、字段含义，或让 Agent 查询业务数据。</p>
-      </div>
+      <el-empty
+        v-if="messages.length === 0"
+        class="empty-state"
+        description="选择连接后开始提问，可以询问表结构、字段含义，或让 Agent 查询业务数据。"
+      />
 
       <article
         v-for="message in messages"
@@ -209,47 +216,62 @@ onMounted(loadConnections);
           <p>{{ message.content }}</p>
 
           <div v-if="message.role === 'assistant' && !message.isError" class="reply-detail">
-            <span v-if="message.intent" class="badge">{{ formatIntent(message.intent) }}</span>
-            <span v-if="Number.isInteger(message.rowCount)" class="badge">
+            <el-tag v-if="message.intent" type="info" effect="light">
+              {{ formatIntent(message.intent) }}
+            </el-tag>
+            <el-tag v-if="Number.isInteger(message.rowCount)" type="success" effect="light">
               {{ message.rowCount }} 行
-            </span>
+            </el-tag>
           </div>
 
           <pre v-if="message.sql" class="sql-block"><code>{{ message.sql }}</code></pre>
 
-          <div v-if="message.data && message.data.length" class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th v-for="column in tableColumns(message.data)" :key="column">{{ column }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, rowIndex) in message.data" :key="rowIndex">
-                  <td v-for="column in tableColumns(message.data)" :key="column">
+          <el-table
+            v-if="message.data && message.data.length"
+            class="result-table"
+            :data="message.data"
+            border
+            size="small"
+          >
+            <el-table-column
+              v-for="column in tableColumns(message.data)"
+              :key="column"
+              :prop="column"
+              :label="column"
+              min-width="140"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
                     {{ displayValue(row[column]) }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+              </template>
+            </el-table-column>
+          </el-table>
         </div>
       </article>
     </section>
 
-    <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
+    <el-alert
+      v-if="errorMessage"
+      class="page-alert"
+      :title="errorMessage"
+      type="error"
+      show-icon
+      :closable="false"
+    />
 
-    <form class="composer" @submit.prevent="sendMessage">
-      <textarea
+    <el-form class="composer" @submit.prevent="sendMessage">
+      <el-input
         v-model="inputMessage"
-        rows="2"
+        type="textarea"
+        :rows="2"
+        resize="vertical"
         placeholder="输入你的数据库问题，Enter 发送，Shift + Enter 换行"
         :disabled="!selectedConnectionId || sending"
         @keydown.enter="handleEnter"
-      ></textarea>
-      <button class="primary-button" type="submit" :disabled="!canSend">
-        {{ sending ? "发送中..." : "发送" }}
-      </button>
-    </form>
+      />
+      <el-button type="primary" native-type="submit" :loading="sending" :disabled="!canSend">
+        发送
+      </el-button>
+    </el-form>
   </section>
 </template>

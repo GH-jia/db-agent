@@ -37,3 +37,11 @@
 重点明确 Controller、Service、Mapper、事务边界和数据表影响。
 不要写业务代码。
 ```
+
+## 示例五：只做前端需求规格化
+```text
+使用 [$requirement-specification](D:\\PycharmProjects\\db-agent\\.agents\\skills\\requirement-specification\\SKILL.md) ，基于 [requirement-state.md](docs/ai/requirements/element-plus-ui-refresh/requirement-state.md) 编写 requirement-spec.md。 
+技术栈 profile 使用 frontend-vue3。
+ 
+不要写业务代码。
+```

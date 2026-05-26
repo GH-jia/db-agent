@@ -10,11 +10,13 @@ const menuItems = [
     key: "chat",
     label: "智能问答",
     description: "自然语言查询与元数据问答",
+    icon: "ChatDotRound",
   },
   {
     key: "connections",
     label: "数据源管理",
     description: "维护 Agent 可使用的数据库连接",
+    icon: "DataAnalysis",
   },
 ];
 
@@ -22,8 +24,8 @@ const activeMenu = computed(() => menuItems.find((item) => item.key === activePa
 </script>
 
 <template>
-  <main class="app-layout">
-    <aside class="sidebar">
+  <el-container class="app-layout">
+    <el-aside class="sidebar" width="268px">
       <div class="brand">
         <div class="brand-mark">DB</div>
         <div>
@@ -32,36 +34,41 @@ const activeMenu = computed(() => menuItems.find((item) => item.key === activePa
         </div>
       </div>
 
-      <nav class="nav-menu" aria-label="主菜单">
-        <button
+      <el-menu class="nav-menu" :default-active="activePage" @select="activePage = $event">
+        <el-menu-item
           v-for="item in menuItems"
           :key="item.key"
-          type="button"
-          class="nav-item"
-          :class="{ active: activePage === item.key }"
-          @click="activePage = item.key"
+          :index="item.key"
         >
-          <strong>{{ item.label }}</strong>
-          <span>{{ item.description }}</span>
-        </button>
-      </nav>
-    </aside>
+          <el-icon>
+            <component :is="item.icon" />
+          </el-icon>
+          <div class="nav-copy">
+            <strong>{{ item.label }}</strong>
+            <span>{{ item.description }}</span>
+          </div>
+        </el-menu-item>
+      </el-menu>
+    </el-aside>
 
-    <section class="main-panel">
+    <el-main class="main-panel">
       <div class="mobile-topbar">
         <div>
           <p class="eyebrow">当前模块</p>
           <h1>{{ activeMenu?.label }}</h1>
         </div>
-        <select v-model="activePage" aria-label="切换页面">
-          <option v-for="item in menuItems" :key="item.key" :value="item.key">
-            {{ item.label }}
-          </option>
-        </select>
+        <el-select v-model="activePage" aria-label="切换页面" class="mobile-page-select">
+          <el-option
+            v-for="item in menuItems"
+            :key="item.key"
+            :label="item.label"
+            :value="item.key"
+          />
+        </el-select>
       </div>
 
       <ChatPage v-if="activePage === 'chat'" />
       <DbConnectionPage v-else />
-    </section>
-  </main>
+    </el-main>
+  </el-container>
 </template>

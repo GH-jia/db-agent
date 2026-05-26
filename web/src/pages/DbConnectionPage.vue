@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
 import {
   createDbConnection,
   deleteDbConnection,
@@ -21,6 +22,9 @@ const defaultForm = {
   status: "active",
 };
 
+const sensitiveKeyPattern =
+  /(password|passwd|pwd|token|api[_-]?key|apikey|secret|credential|connection[_-]?string|dsn|uri)/i;
+
 const filters = reactive({
   keyword: "",
   db_type: "",
@@ -33,6 +37,7 @@ const pager = reactive({
   total: 0,
 });
 
+const formRef = ref(null);
 const form = reactive({ ...defaultForm });
 const connections = ref([]);
 const loading = ref(false);
@@ -42,15 +47,51 @@ const formError = ref("");
 const panelOpen = ref(false);
 const editingConnectionId = ref("");
 const extraText = ref("{}");
+const extraDirty = ref(false);
+const deletingConnectionId = ref("");
 
-const totalPages = computed(() => Math.max(1, Math.ceil(pager.total / pager.pageSize)));
 const isEditing = computed(() => Boolean(editingConnectionId.value));
+const formRules = computed(() => ({
+  name: [{ required: true, message: "请填写连接名称", trigger: "blur" }],
+  host: [{ required: true, message: "请填写主机", trigger: "blur" }],
+  database_name: [{ required: true, message: "请填写数据库名", trigger: "blur" }],
+  username: [{ required: true, message: "请填写用户名", trigger: "blur" }],
+  password: [
+    {
+      validator: (_rule, value, callback) => {
+        if (!isEditing.value && !String(value || "").trim()) {
+          callback(new Error("新增数据源时必须填写密码"));
+          return;
+        }
+        callback();
+      },
+      trigger: "blur",
+    },
+  ],
+}));
 
 function resetForm() {
   Object.assign(form, defaultForm);
   extraText.value = "{}";
+  extraDirty.value = false;
   editingConnectionId.value = "";
   formError.value = "";
+  formRef.value?.clearValidate();
+}
+
+function maskSensitiveExtra(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => maskSensitiveExtra(item));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      sensitiveKeyPattern.test(key) ? "[已隐藏]" : maskSensitiveExtra(item),
+    ])
+  );
 }
 
 function openCreatePanel() {
@@ -72,7 +113,8 @@ function openEditPanel(connection) {
     readonly: Boolean(connection.readonly),
     status: connection.status || "active",
   });
-  extraText.value = JSON.stringify(connection.extra || {}, null, 2);
+  extraText.value = JSON.stringify(maskSensitiveExtra(connection.extra || {}), null, 2);
+  extraDirty.value = false;
   editingConnectionId.value = connection.connection_id;
   formError.value = "";
   panelOpen.value = true;
@@ -80,20 +122,21 @@ function openEditPanel(connection) {
 
 function closePanel() {
   panelOpen.value = false;
-  resetForm();
 }
 
-function cleanPayload() {
-  let extra = {};
+function parseExtra() {
   try {
-    extra = extraText.value.trim() ? JSON.parse(extraText.value) : {};
+    const extra = extraText.value.trim() ? JSON.parse(extraText.value) : {};
+    if (!extra || Array.isArray(extra) || typeof extra !== "object") {
+      throw new Error();
+    }
+    return extra;
   } catch {
     throw new Error("扩展配置必须是合法 JSON 对象");
   }
-  if (!extra || Array.isArray(extra) || typeof extra !== "object") {
-    throw new Error("扩展配置必须是 JSON 对象");
-  }
+}
 
+function cleanPayload() {
   const payload = {
     user_id: form.user_id.trim() || null,
     name: form.name.trim(),
@@ -106,14 +149,10 @@ function cleanPayload() {
     ssl_mode: form.ssl_mode,
     readonly: Boolean(form.readonly),
     status: form.status,
-    extra,
   };
 
-  if (!payload.name || !payload.host || !payload.database_name || !payload.username) {
-    throw new Error("请填写连接名称、主机、数据库名和用户名");
-  }
-  if (!isEditing.value && !payload.password.trim()) {
-    throw new Error("新增数据源时必须填写密码");
+  if (!isEditing.value || extraDirty.value) {
+    payload.extra = parseExtra();
   }
   if (isEditing.value && !payload.password.trim()) {
     delete payload.password;
@@ -136,6 +175,7 @@ async function loadConnections() {
     pager.total = payload.total || 0;
   } catch (error) {
     errorMessage.value = error.message;
+    ElMessage.error(error.message);
   } finally {
     loading.value = false;
   }
@@ -154,47 +194,67 @@ function resetFilters() {
 }
 
 async function saveConnection() {
-  saving.value = true;
   formError.value = "";
   try {
+    await formRef.value?.validate();
     const payload = cleanPayload();
+    saving.value = true;
     if (isEditing.value) {
       await updateDbConnection(editingConnectionId.value, payload);
+      ElMessage.success("数据源已更新");
     } else {
       await createDbConnection(payload);
+      ElMessage.success("数据源已创建");
     }
     closePanel();
     await loadConnections();
   } catch (error) {
-    formError.value = error.message;
+    const message = error?.message || "请检查表单必填项";
+    formError.value = message;
+    ElMessage.error(message);
   } finally {
     saving.value = false;
   }
 }
 
 async function removeConnection(connection) {
-  const confirmed = window.confirm(`确认删除数据源「${connection.name}」吗？`);
-  if (!confirmed) {
+  try {
+    await ElMessageBox.confirm(`确认删除数据源「${connection.name}」吗？`, "删除数据源", {
+      type: "warning",
+      confirmButtonText: "删除",
+      cancelButtonText: "取消",
+      confirmButtonClass: "el-button--danger",
+    });
+  } catch {
     return;
   }
+
   errorMessage.value = "";
+  deletingConnectionId.value = connection.connection_id;
   try {
     await deleteDbConnection(connection.connection_id);
+    ElMessage.success("数据源已删除");
     if (connections.value.length === 1 && pager.page > 1) {
       pager.page -= 1;
     }
     await loadConnections();
   } catch (error) {
     errorMessage.value = error.message;
+    ElMessage.error(error.message);
+  } finally {
+    deletingConnectionId.value = "";
   }
 }
 
-function changePage(nextPage) {
-  const normalized = Math.min(Math.max(nextPage, 1), totalPages.value);
-  if (normalized !== pager.page) {
-    pager.page = normalized;
-    loadConnections();
-  }
+function handlePageChange(nextPage) {
+  pager.page = nextPage;
+  loadConnections();
+}
+
+function handlePageSizeChange(nextSize) {
+  pager.pageSize = nextSize;
+  pager.page = 1;
+  loadConnections();
 }
 
 function formatDate(value) {
@@ -217,6 +277,13 @@ function formatTestState(connection) {
   return connection.last_test_success ? "测试通过" : "测试失败";
 }
 
+function testStateType(connection) {
+  if (!connection.last_tested_at) {
+    return "info";
+  }
+  return connection.last_test_success ? "success" : "danger";
+}
+
 onMounted(loadConnections);
 </script>
 
@@ -227,195 +294,238 @@ onMounted(loadConnections);
         <p class="eyebrow">Data Sources</p>
         <h1>数据源管理</h1>
       </div>
-      <button class="primary-button" type="button" @click="openCreatePanel">新增数据源</button>
+      <el-button type="primary" icon="Plus" @click="openCreatePanel">新增数据源</el-button>
     </header>
 
-    <section class="toolbar-panel connection-toolbar">
-      <label>
-        <span>搜索</span>
-        <input v-model="filters.keyword" type="search" placeholder="连接名称" @keyup.enter="applyFilters" />
-      </label>
-      <label>
-        <span>数据库类型</span>
-        <select v-model="filters.db_type">
-          <option value="">全部</option>
-          <option value="postgresql">PostgreSQL</option>
-          <option value="mysql">MySQL</option>
-        </select>
-      </label>
-      <label>
-        <span>状态</span>
-        <select v-model="filters.status">
-          <option value="">全部</option>
-          <option value="active">启用</option>
-          <option value="disabled">停用</option>
-        </select>
-      </label>
+    <el-form class="toolbar-panel connection-toolbar" label-position="top" @submit.prevent>
+      <el-form-item label="搜索">
+        <el-input
+          v-model="filters.keyword"
+          clearable
+          placeholder="连接名称"
+          @keyup.enter="applyFilters"
+        />
+      </el-form-item>
+      <el-form-item label="数据库类型">
+        <el-select v-model="filters.db_type" clearable placeholder="全部">
+          <el-option label="PostgreSQL" value="postgresql" />
+          <el-option label="MySQL" value="mysql" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="状态">
+        <el-select v-model="filters.status" clearable placeholder="全部">
+          <el-option label="启用" value="active" />
+          <el-option label="停用" value="disabled" />
+        </el-select>
+      </el-form-item>
       <div class="toolbar-actions">
-        <button class="ghost-button" type="button" @click="resetFilters">重置</button>
-        <button class="dark-button" type="button" @click="applyFilters">查询</button>
+        <el-button @click="resetFilters">重置</el-button>
+        <el-button type="primary" icon="Search" @click="applyFilters">查询</el-button>
       </div>
-    </section>
+    </el-form>
 
-    <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
+    <el-alert
+      v-if="errorMessage"
+      class="page-alert"
+      :title="errorMessage"
+      type="error"
+      show-icon
+      :closable="false"
+    />
 
     <section class="data-panel">
       <div class="table-meta">
         <span>共 {{ pager.total }} 条数据源</span>
-        <span v-if="loading">正在加载...</span>
+        <el-tag v-if="loading" type="info" effect="plain">正在加载</el-tag>
       </div>
 
-      <div class="table-wrap connections-table">
-        <table>
-          <thead>
-            <tr>
-              <th>连接名称</th>
-              <th>类型</th>
-              <th>主机</th>
-              <th>数据库</th>
-              <th>用户</th>
-              <th>访问</th>
-              <th>状态</th>
-              <th>连接测试</th>
-              <th>更新时间</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="!loading && connections.length === 0">
-              <td colspan="10" class="empty-cell">暂无数据源</td>
-            </tr>
-            <tr v-for="connection in connections" :key="connection.connection_id">
-              <td>
-                <strong>{{ connection.name }}</strong>
-                <small>{{ connection.connection_id }}</small>
-              </td>
-              <td>{{ connection.db_type }}</td>
-              <td>{{ connection.host }}:{{ connection.port }}</td>
-              <td>{{ connection.database_name }}</td>
-              <td>{{ connection.username }}</td>
-              <td>{{ connection.readonly ? "只读" : "读写" }}</td>
-              <td>
-                <span class="status-pill" :class="connection.status">
-                  {{ connection.status === "active" ? "启用" : "停用" }}
-                </span>
-              </td>
-              <td>{{ formatTestState(connection) }}</td>
-              <td>{{ formatDate(connection.updated_at) }}</td>
-              <td>
-                <div class="row-actions">
-                  <button class="link-button" type="button" @click="openEditPanel(connection)">编辑</button>
-                  <button class="danger-link" type="button" @click="removeConnection(connection)">删除</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <el-table
+        v-loading="loading"
+        class="connection-table"
+        :data="connections"
+        border
+        empty-text="暂无数据源"
+      >
+        <el-table-column prop="name" label="连接名称" min-width="190" fixed>
+          <template #default="{ row }">
+            <strong class="table-title">{{ row.name }}</strong>
+            <small>{{ row.connection_id }}</small>
+          </template>
+        </el-table-column>
+        <el-table-column prop="db_type" label="类型" min-width="110" />
+        <el-table-column label="主机" min-width="190" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.host }}:{{ row.port }}</template>
+        </el-table-column>
+        <el-table-column prop="database_name" label="数据库" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="username" label="用户" min-width="130" show-overflow-tooltip />
+        <el-table-column label="访问" min-width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.readonly ? 'info' : 'warning'" effect="light">
+              {{ row.readonly ? "只读" : "读写" }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" min-width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'active' ? 'success' : 'warning'" effect="light">
+              {{ row.status === "active" ? "启用" : "停用" }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="连接测试" min-width="110">
+          <template #default="{ row }">
+            <el-tag :type="testStateType(row)" effect="plain">{{ formatTestState(row) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="更新时间" min-width="160">
+          <template #default="{ row }">{{ formatDate(row.updated_at) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <div class="row-actions">
+              <el-button link type="primary" @click="openEditPanel(row)">编辑</el-button>
+              <el-button
+                link
+                type="danger"
+                :loading="deletingConnectionId === row.connection_id"
+                @click="removeConnection(row)"
+              >
+                删除
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
 
       <footer class="pagination">
-        <button class="ghost-button" type="button" :disabled="pager.page <= 1" @click="changePage(pager.page - 1)">
-          上一页
-        </button>
-        <span>第 {{ pager.page }} / {{ totalPages }} 页</span>
-        <button
-          class="ghost-button"
-          type="button"
-          :disabled="pager.page >= totalPages"
-          @click="changePage(pager.page + 1)"
-        >
-          下一页
-        </button>
+        <el-pagination
+          v-model:current-page="pager.page"
+          v-model:page-size="pager.pageSize"
+          background
+          layout="total, sizes, prev, pager, next"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="pager.total"
+          @current-change="handlePageChange"
+          @size-change="handlePageSizeChange"
+        />
       </footer>
     </section>
 
-    <div v-if="panelOpen" class="drawer-mask" @click.self="closePanel">
-      <aside class="drawer-panel" aria-label="数据源表单">
-        <header>
+    <el-drawer
+      v-model="panelOpen"
+      class="connection-drawer"
+      size="min(620px, 100vw)"
+      :with-header="false"
+      @closed="resetForm"
+    >
+      <template #default>
+        <header class="drawer-header">
           <div>
             <p class="eyebrow">{{ isEditing ? "Edit Source" : "New Source" }}</p>
             <h2>{{ isEditing ? "编辑数据源" : "新增数据源" }}</h2>
           </div>
-          <button class="ghost-button" type="button" @click="closePanel">关闭</button>
+          <el-button icon="Close" circle @click="closePanel" />
         </header>
 
-        <form class="connection-form" @submit.prevent="saveConnection">
-          <label>
-            <span>连接名称</span>
-            <input v-model="form.name" type="text" maxlength="100" placeholder="例如：生产只读库" />
-          </label>
-          <label>
-            <span>用户标识</span>
-            <input v-model="form.user_id" type="text" maxlength="100" placeholder="可选" />
-          </label>
-          <label>
-            <span>数据库类型</span>
-            <select v-model="form.db_type">
-              <option value="postgresql">PostgreSQL</option>
-              <option value="mysql">MySQL</option>
-            </select>
-          </label>
-          <label>
-            <span>主机</span>
-            <input v-model="form.host" type="text" maxlength="255" placeholder="127.0.0.1" />
-          </label>
-          <label>
-            <span>端口</span>
-            <input v-model="form.port" type="number" min="1" max="65535" placeholder="默认端口" />
-          </label>
-          <label>
-            <span>数据库名</span>
-            <input v-model="form.database_name" type="text" maxlength="100" />
-          </label>
-          <label>
-            <span>用户名</span>
-            <input v-model="form.username" type="text" maxlength="100" />
-          </label>
-          <label>
-            <span>密码</span>
-            <input
+        <el-form
+          ref="formRef"
+          class="connection-form"
+          :model="form"
+          :rules="formRules"
+          label-position="top"
+          @submit.prevent="saveConnection"
+        >
+          <el-form-item label="连接名称" prop="name">
+            <el-input v-model="form.name" maxlength="100" placeholder="例如：生产只读库" />
+          </el-form-item>
+          <el-form-item label="用户标识">
+            <el-input v-model="form.user_id" maxlength="100" placeholder="可选" />
+          </el-form-item>
+          <el-form-item label="数据库类型" prop="db_type">
+            <el-select v-model="form.db_type">
+              <el-option label="PostgreSQL" value="postgresql" />
+              <el-option label="MySQL" value="mysql" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="主机" prop="host">
+            <el-input v-model="form.host" maxlength="255" placeholder="127.0.0.1" />
+          </el-form-item>
+          <el-form-item label="端口">
+            <el-input-number
+              v-model="form.port"
+              :min="1"
+              :max="65535"
+              controls-position="right"
+              placeholder="默认端口"
+            />
+          </el-form-item>
+          <el-form-item label="数据库名" prop="database_name">
+            <el-input v-model="form.database_name" maxlength="100" />
+          </el-form-item>
+          <el-form-item label="用户名" prop="username">
+            <el-input v-model="form.username" maxlength="100" />
+          </el-form-item>
+          <el-form-item label="密码" prop="password">
+            <el-input
               v-model="form.password"
               type="password"
+              show-password
               :placeholder="isEditing ? '不填写则保持原密码' : '请输入密码'"
             />
-          </label>
-          <label>
-            <span>SSL 模式</span>
-            <select v-model="form.ssl_mode">
-              <option value="disable">disable</option>
-              <option value="allow">allow</option>
-              <option value="prefer">prefer</option>
-              <option value="require">require</option>
-              <option value="verify-ca">verify-ca</option>
-              <option value="verify-full">verify-full</option>
-            </select>
-          </label>
-          <label>
-            <span>状态</span>
-            <select v-model="form.status">
-              <option value="active">启用</option>
-              <option value="disabled">停用</option>
-            </select>
-          </label>
-          <label class="switch-row">
-            <input v-model="form.readonly" type="checkbox" />
-            <span>只读连接</span>
-          </label>
-          <label class="form-wide">
-            <span>扩展配置 JSON</span>
-            <textarea v-model="extraText" rows="5" spellcheck="false"></textarea>
-          </label>
+          </el-form-item>
+          <el-form-item label="SSL 模式">
+            <el-select v-model="form.ssl_mode">
+              <el-option label="disable" value="disable" />
+              <el-option label="allow" value="allow" />
+              <el-option label="prefer" value="prefer" />
+              <el-option label="require" value="require" />
+              <el-option label="verify-ca" value="verify-ca" />
+              <el-option label="verify-full" value="verify-full" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="状态">
+            <el-select v-model="form.status">
+              <el-option label="启用" value="active" />
+              <el-option label="停用" value="disabled" />
+            </el-select>
+          </el-form-item>
+          <el-form-item class="form-wide" label="访问模式">
+            <el-switch
+              v-model="form.readonly"
+              active-text="只读连接"
+              inactive-text="读写连接"
+              inline-prompt
+            />
+          </el-form-item>
+          <el-form-item class="form-wide" label="扩展配置 JSON">
+            <el-input
+              v-model="extraText"
+              type="textarea"
+              :rows="5"
+              resize="vertical"
+              spellcheck="false"
+              @input="extraDirty = true"
+            />
+            <p v-if="isEditing" class="field-help">
+              编辑时不修改扩展配置将保留原值；敏感键值不会明文回显。
+            </p>
+          </el-form-item>
 
-          <p v-if="formError" class="error-banner">{{ formError }}</p>
+          <el-alert
+            v-if="formError"
+            class="form-wide"
+            :title="formError"
+            type="error"
+            show-icon
+            :closable="false"
+          />
 
           <footer class="form-actions">
-            <button class="ghost-button" type="button" @click="closePanel">取消</button>
-            <button class="primary-button" type="submit" :disabled="saving">
-              {{ saving ? "保存中..." : "保存" }}
-            </button>
+            <el-button @click="closePanel">取消</el-button>
+            <el-button type="primary" native-type="submit" :loading="saving">保存</el-button>
           </footer>
-        </form>
-      </aside>
-    </div>
+        </el-form>
+      </template>
+    </el-drawer>
   </section>
 </template>
