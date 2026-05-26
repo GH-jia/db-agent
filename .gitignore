@@ -26,6 +26,8 @@ htmlcov/
 logs/
 *.log
 config.yaml
+docs/
+.agents/
 
 .DS_Store
 Thumbs.db
