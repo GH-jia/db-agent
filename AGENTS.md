@@ -106,15 +106,3 @@ npm run build
 - 日志中不要记录敏感信息。
 - 异常日志应保留接口路径、操作类型等必要上下文，但不要泄露用户密钥或数据库密码。
 
-## 需求工作流
-
-需求开发前优先完成需求孵化和需求规格化，再进入需求开发阶段。
-
-- 需求孵化：使用 `.agents/skills/requirement-incubation/SKILL.md`，输出 `docs/ai/requirements/<requirement-slug>/requirement-state.md`。
-- 需求规格化：使用 `.agents/skills/requirement-specification/SKILL.md`，基于 `requirement-state.md` 输出 `docs/ai/requirements/<requirement-slug>/requirement-spec.md`。
-- 需求开发：使用 `.agents/skills/requirement-development/SKILL.md`，基于允许开发的 `requirement-spec.md` 输出 `development-plan.md`，完成实现和验证后输出 `implementation-summary.md`。
-- 如果存在 P0 待澄清问题，不允许进入下一阶段。
-- 需求文档使用中文 Markdown，不使用彩色图标或装饰性符号。
-- 不允许跳过 `requirement-spec.md` 直接开发。
-- 不允许在规格未冻结、存在 P0 规格缺口或未明确允许开发时修改业务代码。
-- 开发阶段不得擅自扩展 `requirement-spec.md` 中未覆盖的需求范围。
