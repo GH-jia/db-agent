@@ -288,7 +288,7 @@ onMounted(loadConnections);
 </script>
 
 <template>
-  <section class="workspace-page">
+  <section class="workspace-page connections-page">
     <header class="page-header">
       <div>
         <p class="eyebrow">Data Sources</p>
