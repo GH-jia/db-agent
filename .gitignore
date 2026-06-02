@@ -27,6 +27,10 @@ logs/
 *.log
 config.yaml
 docs/
+!docs/
+docs/*
+!docs/ai-context/
+!docs/ai-context/**
 .agents/
 
 .DS_Store
